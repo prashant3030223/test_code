@@ -1,0 +1,13 @@
+{
+  "name": "talent-iq",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "npm install --prefix frontend && npm run build --prefix frontend",
+    "dev": "npm run dev --prefix frontend"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
