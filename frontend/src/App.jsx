@@ -15,9 +15,12 @@ function App() {
   const { isSignedIn, isLoaded } = useAuth();
   console.log("Auth State:", { isSignedIn, isLoaded });
 
+  // DEMO MODE: Bypass auth to show UI immediately
+  const DEMO_MODE = true;
+  const effectiveSignedIn = DEMO_MODE || isSignedIn;
 
   // this will get rid of the flickering effect
-  if (!isLoaded) {
+  if (!isLoaded && !DEMO_MODE) {
     return (
       <div className="min-h-screen bg-[#1d232a] text-white flex flex-col items-center justify-center gap-4">
         <div className="loading loading-spinner loading-lg text-primary"></div>
@@ -30,19 +33,19 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={!isSignedIn ? <HomePage /> : <Navigate to={"/dashboard"} />} />
-        <Route path="/dashboard" element={isSignedIn ? <DashboardPage /> : <Navigate to={"/"} />} />
+        <Route path="/" element={!effectiveSignedIn ? <HomePage /> : <Navigate to={"/dashboard"} />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
 
-        <Route path="/problems" element={isSignedIn ? <ProblemsPage /> : <Navigate to={"/"} />} />
-        <Route path="/problem/:id" element={isSignedIn ? <ProblemPage /> : <Navigate to={"/"} />} />
-        <Route path="/session/:id" element={isSignedIn ? <SessionPage /> : <Navigate to={"/"} />} />
+        <Route path="/problems" element={<ProblemsPage />} />
+        <Route path="/problem/:id" element={<ProblemPage />} />
+        <Route path="/session/:id" element={<SessionPage />} />
 
         {/* New LeetCode Features */}
-        <Route path="/profile" element={isSignedIn ? <ProfilePage /> : <Navigate to={"/"} />} />
-        <Route path="/contest" element={isSignedIn ? <ContestPage /> : <Navigate to={"/"} />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/contest" element={<ContestPage />} />
 
         {/* Fallback for unknown routes like /login */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
 
 
