@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { toast } from "react-hot-toast";
 
 const AuthContext = createContext({
     user: null,
@@ -15,44 +16,113 @@ export const AuthProvider = ({ children }) => {
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
-        // Safety timeout to prevent infinite loading if Supabase hangs
-        const timeout = setTimeout(() => {
-            if (!isLoaded) {
-                console.warn("Auth initialization timed out. Forcing isLoaded to true.");
-                setIsLoaded(true);
-            }
-        }, 5000);
+        let mounted = true;
 
-        // Check active sessions and sets the user
-        supabase.auth.getSession()
-            .then(({ data: { session } }) => {
+        const initAuth = async () => {
+            console.log("Auth: Initializing...");
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (mounted) {
+                    setSession(session);
+                    setUser(session?.user ?? null);
+                    setIsLoaded(true);
+                    console.log("Auth: Initial session loaded", !!session);
+                }
+            } catch (err) {
+                console.error("Auth: Initial session error", err);
+                if (mounted) setIsLoaded(true);
+            }
+        };
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            console.log("Auth: State Change ->", _event);
+            if (mounted) {
                 setSession(session);
                 setUser(session?.user ?? null);
                 setIsLoaded(true);
-                clearTimeout(timeout);
-            })
-            .catch(err => {
-                console.error("Error getting session:", err);
-                setIsLoaded(true); // Don't block the app even on error
-                clearTimeout(timeout);
-            });
-
-        // Listen for changes on auth state (logged in, signed out, etc.)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            console.log("Auth State Changed:", _event);
-            setSession(session);
-            setUser(session?.user ?? null);
-            setIsLoaded(true);
+            }
         });
 
+        initAuth();
+
+        const timeout = setTimeout(() => {
+            if (mounted && !isLoaded) {
+                console.warn("Auth: Initialization threshold reached. Forcing load state.");
+                setIsLoaded(true);
+            }
+        }, 3000); // 3 seconds is enough for auth
+
         return () => {
+            mounted = false;
             subscription.unsubscribe();
             clearTimeout(timeout);
         };
     }, []);
 
+    // Separated Profile Sync Effect
+    useEffect(() => {
+        if (!user) return;
 
-    const signOut = () => supabase.auth.signOut();
+        const syncProfile = async () => {
+            try {
+                const { data: existingUser } = await supabase
+                    .from("users")
+                    .select("id")
+                    .eq("clerk_id", user.id)
+                    .maybeSingle();
+
+                if (!existingUser) {
+                    console.log("Auth: Syncing new profile...");
+                    const newUser = {
+                        id: user.id,
+                        clerk_id: user.id,
+                        email: user.email,
+                        name: user.user_metadata?.full_name || user.email?.split('@')[0] || "User",
+                        profile_image: user.user_metadata?.avatar_url || "",
+                    };
+                    const { error } = await supabase.from("users").insert(newUser);
+                    if (error) console.error("Auth: Sync Error", error);
+                }
+            } catch (err) {
+                console.error("Auth: Sync Failed", err);
+            }
+        };
+
+        syncProfile();
+    }, [user?.id]);
+
+
+    const signOut = async () => {
+        console.log("AuthProvider: signOut starting...");
+        try {
+            // 1. CLEAR LOCAL STATE IMMEDIATELY (Don't wait for server)
+            setSession(null);
+            setUser(null);
+
+            // 2. Clear session specific local storage
+            Object.keys(localStorage).forEach(key => {
+                if (key.includes('session_') || key.includes('interview')) {
+                    localStorage.removeItem(key);
+                }
+            });
+
+            // 3. Close dropdowns
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
+
+            toast.success("Logging out...");
+
+            // 4. Background sign out from Supabase (Don't await it if we want instant UI)
+            supabase.auth.signOut().catch(e => console.error("Supabase signOut error:", e));
+
+            console.log("AuthProvider: Sign out cleanup complete");
+        } catch (error) {
+            console.error("Sign Out Error:", error);
+            setSession(null);
+            setUser(null);
+        }
+    };
 
     const value = {
         user,

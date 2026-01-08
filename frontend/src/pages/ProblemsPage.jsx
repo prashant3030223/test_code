@@ -4,6 +4,85 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { problemApi } from "../api/problems";
 import { ChevronRightIcon, SearchIcon, Building2Icon, FilterIcon, SparklesIcon, TrendingUpIcon, Loader2Icon, CheckCircle2, ChevronLeftIcon, ChevronsRightIcon } from "lucide-react";
+import { PROBLEM_ID_MAP } from "../data/problemMap";
+
+const getCompanyLogo = (company) => {
+  if (!company) return null;
+  const normalized = company.trim().toLowerCase();
+
+  const domainMap = {
+    'google': 'google.com',
+    'amazon': 'amazon.com',
+    'microsoft': 'microsoft.com',
+    'meta': 'meta.com',
+    'facebook': 'facebook.com',
+    'netflix': 'netflix.com',
+    'apple': 'apple.com',
+    'adobe': 'adobe.com',
+    'uber': 'uber.com',
+    'airbnb': 'airbnb.com',
+    'spotify': 'spotify.com',
+    'salesforce': 'salesforce.com',
+    'nvidia': 'nvidia.com',
+    'tesla': 'tesla.com',
+    'twitter': 'twitter.com',
+    'x': 'twitter.com',
+    'bytedance': 'bytedance.com',
+    'tcs': 'tcs.com',
+    'infosys': 'infosys.com',
+    'flipkart': 'flipkart.com',
+    'zomato': 'zomato.com',
+    'paytm': 'paytm.com',
+    'walmart': 'walmart.com',
+    'goldman sachs': 'goldmansachs.com',
+    'morgan stanley': 'morganstanley.com',
+    'jp morgan': 'jpmorgan.com',
+    'visa': 'visa.com',
+    'mastercard': 'mastercard.com',
+    'stripe': 'stripe.com',
+    'atlassian': 'atlassian.com'
+  };
+
+  const domain = domainMap[normalized] || `${normalized.replace(/\s+/g, '')}.com`;
+  return `https://unavatar.io/duckduckgo/${domain}`;
+};
+
+const CompanyButton = ({ company, isSelected, onClick }) => {
+  const [imgError, setImgError] = useState(false);
+  const logo = getCompanyLogo(company);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [company]);
+
+  return (
+    <button
+      onClick={onClick}
+      className={`group p-6 rounded-[2rem] border transition-all duration-500 text-center
+        ${isSelected
+          ? "bg-primary border-primary shadow-[0_0_40px_-10px_rgba(59,130,246,0.5)]"
+          : "bg-white/5 border-white/5 hover:border-white/20 hover:bg-white/[0.08]"}`}
+    >
+      <div className={`size-14 rounded-2xl mx-auto mb-4 flex items-center justify-center transition-all duration-500 overflow-hidden
+        ${isSelected ? "bg-white/20" : "bg-white/5 group-hover:scale-110 group-hover:bg-white/10"}`}>
+        {!imgError ? (
+          <img
+            src={logo}
+            alt=""
+            className="size-10 object-contain shadow-sm"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <span className="text-xl font-black">{company?.[0]?.toUpperCase()}</span>
+        )}
+      </div>
+      <span className={`text-[10px] font-black uppercase tracking-widest transition-colors block truncate
+        ${isSelected ? "text-white" : "text-white/40 group-hover:text-white"}`}>
+        {company}
+      </span>
+    </button>
+  );
+};
 
 function ProblemsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -15,6 +94,7 @@ function ProblemsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState("All");
   const [selectedCompany, setSelectedCompany] = useState("All");
+  const [expandCompanies, setExpandCompanies] = useState(false);
 
   // Sync page to URL
   useEffect(() => {
@@ -24,49 +104,59 @@ function ProblemsPage() {
     });
   }, [page, setSearchParams]);
 
-  // Fetch Stats & Metadata (Difficulty Counts, Company List) - Cached
-  const { data: globalStats = [] } = useQuery({
+  // 1. Fetch ALL Problems once (LITE version)
+  const { data: allProblemsRaw = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["problemStats"],
     queryFn: problemApi.getGlobalStats,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
-  // Calculate metadata from light stats
-  const { allCompanies, easyCount, mediumCount, hardCount, totalCount } = useMemo(() => {
+  // 2. Client-side Filtering & Metadata Calculation
+  const { allCompanies, easyCount, mediumCount, hardCount, totalCount, filteredProblems } = useMemo(() => {
     const companies = new Set();
     let e = 0, m = 0, h = 0;
-    globalStats.forEach(p => {
+
+    // Calculate global stats from raw data
+    allProblemsRaw.forEach(p => {
       p.companies?.forEach(c => companies.add(c));
-      const d = p.difficulty;
-      if (d === "Easy") e++;
-      else if (d === "Medium") m++;
-      else if (d === "Hard") h++;
+      if (p.difficulty === "Easy") e++;
+      else if (p.difficulty === "Medium") m++;
+      else if (p.difficulty === "Hard") h++;
     });
+
+    // Apply current filters
+    const filtered = allProblemsRaw.filter(p => {
+      const matchSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchDiff = selectedDifficulty === "All" || p.difficulty === selectedDifficulty;
+      const matchComp = selectedCompany === "All" || p.companies?.includes(selectedCompany);
+      return matchSearch && matchDiff && matchComp;
+    }).sort((a, b) => {
+      const idA = PROBLEM_ID_MAP[a.id] || 99999;
+      const idB = PROBLEM_ID_MAP[b.id] || 99999;
+      return idA - idB;
+    });
+
     return {
       allCompanies: Array.from(companies).sort(),
       easyCount: e,
       mediumCount: m,
       hardCount: h,
-      totalCount: globalStats.length
+      totalCount: allProblemsRaw.length,
+      filteredProblems: filtered
     };
-  }, [globalStats]);
+  }, [allProblemsRaw, searchQuery, selectedDifficulty, selectedCompany]);
 
-  // Fetch Paginated Problems
-  const { data: paginatedData, isLoading, isPreviousData } = useQuery({
-    queryKey: ["problems", page, searchQuery, selectedDifficulty, selectedCompany],
-    queryFn: () => problemApi.getProblemsPaginated({
-      page,
-      pageSize: PAGE_SIZE,
-      search: searchQuery,
-      difficulty: selectedDifficulty,
-      company: selectedCompany
-    }),
-    keepPreviousData: true
-  });
-
-  const problems = paginatedData?.problems || [];
-  const totalResults = paginatedData?.count || 0;
+  // 3. Client-side Pagination
+  const totalResults = filteredProblems.length;
   const totalPages = Math.ceil(totalResults / PAGE_SIZE);
+
+  const paginatedProblems = useMemo(() => {
+    const from = (page - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE;
+    return filteredProblems.slice(from, to);
+  }, [filteredProblems, page, PAGE_SIZE]);
+
+  const problems = paginatedProblems;
 
   // Reset page when filters change
   const handleFilterChange = (setter, value) => {
@@ -74,11 +164,31 @@ function ProblemsPage() {
     setPage(1);
   };
 
-  if (isLoading && !problems.length) {
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center gap-6 p-4">
+        <div className="size-20 rounded-3xl bg-red-500/10 flex items-center justify-center border border-red-500/20">
+          <SparklesIcon className="size-10 text-red-500 opacity-50" />
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-black text-white">Database Error</h2>
+          <p className="text-white/40 max-w-md mx-auto">
+            {error?.message || "Failed to connect to Supabase. Check your connection or .env credentials."}
+          </p>
+        </div>
+        <div className="flex gap-4">
+          <button onClick={() => refetch()} className="btn btn-primary px-8 rounded-2xl">Retry Connection</button>
+          <button onClick={() => window.location.reload()} className="btn btn-outline px-8 rounded-2xl">Reload</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading && allProblemsRaw.length === 0) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center gap-4">
         <Loader2Icon className="size-12 animate-spin text-primary" />
-        <p className="text-white/40 font-black uppercase tracking-[0.3em]">Loading Quest Bank...</p>
+        <p className="text-white/40 font-black uppercase tracking-[0.3em]">Synching Quest Bank...</p>
       </div>
     );
   }
@@ -110,38 +220,28 @@ function ProblemsPage() {
 
         {/* TOP COMPANIES EXPLORE */}
         <div className="mb-16">
+
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-black uppercase tracking-widest text-white/90 flex items-center gap-3">
               <Building2Icon className="size-6 text-primary" />
               Explore Companies
             </h2>
             <button
-              onClick={() => handleFilterChange(setSelectedCompany, "All")}
+              onClick={() => setExpandCompanies(!expandCompanies)}
               className="text-xs font-bold text-primary hover:underline uppercase tracking-widest"
             >
-              View All
+              {expandCompanies ? "Show Less" : "View All"}
             </button>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {allCompanies.slice(0, 6).map(company => (
-              <button
+            {allCompanies.slice(0, expandCompanies ? undefined : 12).map((company) => (
+              <CompanyButton
                 key={company}
+                company={company}
+                isSelected={selectedCompany === company}
                 onClick={() => handleFilterChange(setSelectedCompany, company)}
-                className={`group p-6 rounded-[2rem] border transition-all duration-500 text-center
-                            ${selectedCompany === company
-                    ? "bg-primary border-primary shadow-[0_0_40px_-10px_rgba(59,130,246,0.5)]"
-                    : "bg-white/5 border-white/5 hover:border-white/20 hover:bg-white/[0.08]"}`}
-              >
-                <div className={`size-12 rounded-2xl mx-auto mb-4 flex items-center justify-center transition-all duration-500
-                            ${selectedCompany === company ? "bg-white/20" : "bg-white/5 group-hover:scale-110 group-hover:bg-white/10"}`}>
-                  <span className="text-xl font-black">{company[0]}</span>
-                </div>
-                <span className={`text-xs font-black uppercase tracking-widest transition-colors
-                            ${selectedCompany === company ? "text-white" : "text-white/40 group-hover:text-white"}`}>
-                  {company}
-                </span>
-              </button>
+              />
             ))}
           </div>
         </div>
@@ -252,6 +352,7 @@ function ProblemsPage() {
                           </div>
 
                           <h2 className="text-3xl font-black mb-6 group-hover:text-primary transition-colors tracking-tight flex items-center gap-3">
+                            {PROBLEM_ID_MAP[problem.id] && <span className="text-white/30 mr-2">{PROBLEM_ID_MAP[problem.id]}.</span>}
                             {problem.title}
                             {problem.isSolved && (
                               <CheckCircle2 className="size-6 text-green-500 fill-green-500/10" />
@@ -260,11 +361,15 @@ function ProblemsPage() {
 
                           {/* COMPANY TAGS */}
                           <div className="flex flex-wrap gap-2">
-                            {problem.companies?.map(company => (
-                              <div key={company} className="flex items-center gap-1.5 px-4 py-2 bg-white/5 rounded-2xl border border-white/5 group-hover:border-white/10 transition-colors">
-                                <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">{company}</span>
-                              </div>
-                            ))}
+                            {problem.companies?.map(company => {
+                              const logo = getCompanyLogo(company);
+                              return (
+                                <div key={company} className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5 group-hover:border-white/10 transition-colors">
+                                  {logo && <img src={logo} alt="" className="size-3 object-contain brightness-0 invert opacity-60" />}
+                                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">{company}</span>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
 

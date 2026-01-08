@@ -17,7 +17,11 @@ export const PROBLEMS = {
     starterCode: {
       javascript: `function twoSum(nums, target) {\n  const map = new Map();\n  for (let i = 0; i < nums.length; i++) {\n    const diff = target - nums[i];\n    if (map.has(diff)) return [map.get(diff), i];\n    map.set(nums[i], i);\n  }\n}\n\nconsole.log(twoSum([2, 7, 11, 15], 9));`,
       python: `def twoSum(nums, target):\n    prevMap = {}\n    for i, n in enumerate(nums):\n        diff = target - n\n        if diff in prevMap:\n            return [prevMap[diff], i]\n        prevMap[n] = i`,
-      java: `import java.util.*;\nclass Solution {\n    public int[] twoSum(int[] nums, int target) {\n        HashMap<Integer, Integer> map = new HashMap<>();\n        for (int i = 0; i < nums.length; i++) {\n            int diff = target - nums[i];\n            if (map.containsKey(diff)) return new int[]{map.get(diff), i};\n            map.put(nums[i], i);\n        }\n        return new int[0];\n    }\n}`
+      java: `import java.util.*;\nclass Solution {\n    public int[] twoSum(int[] nums, int target) {\n        HashMap<Integer, Integer> map = new HashMap<>();\n        for (int i = 0; i < nums.length; i++) {\n            int diff = target - nums[i];\n            if (map.containsKey(diff)) return new int[]{map.get(diff), i};\n            map.put(nums[i], i);\n        }\n        return new int[0];\n    }\n}`,
+      c: `/**\n * Note: The returned array must be malloced, assume caller calls free().\n */\nint* twoSum(int* nums, int numsSize, int target, int* returnSize) {\n    \n}`,
+      csharp: `public class Solution {\n    public int[] TwoSum(int[] nums, int target) {\n        \n    }\n}`,
+      cpp: `class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        \n    }\n};`,
+      go: `func twoSum(nums []int, target int) []int {\n    \n}`
     },
     expectedOutput: { javascript: "[0,1]", python: "[0, 1]", java: "[0, 1]" }
   },
@@ -320,4 +324,14 @@ export const LANGUAGE_CONFIG = {
     icon: "/csharp.png",
     monacoLang: "csharp",
   },
+  php: { name: "PHP", icon: "/code.png", monacoLang: "php" },
+  go: { name: "Go", icon: "/code.png", monacoLang: "go" },
+  ruby: { name: "Ruby", icon: "/code.png", monacoLang: "ruby" },
+  rust: { name: "Rust", icon: "/code.png", monacoLang: "rust" },
+  scala: { name: "Scala", icon: "/code.png", monacoLang: "scala" },
+  kotlin: { name: "Kotlin", icon: "/code.png", monacoLang: "kotlin" },
+  swift: { name: "Swift", icon: "/code.png", monacoLang: "swift" },
+  dart: { name: "Dart", icon: "/code.png", monacoLang: "dart" },
+  elixir: { name: "Elixir", icon: "/code.png", monacoLang: "elixir" },
+  typescript: { name: "TypeScript", icon: "/code.png", monacoLang: "typescript" },
 };

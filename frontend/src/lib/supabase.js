@@ -7,4 +7,5 @@ if (!supabaseUrl || !supabaseAnonKey) {
     console.warn("Missing Supabase credentials. Auth might not work.");
 }
 
+console.log("Supabase Client Initializing with URL:", supabaseUrl);
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

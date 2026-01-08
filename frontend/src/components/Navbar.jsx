@@ -109,8 +109,12 @@ function Navbar() {
               <div className="divider my-0 opacity-50"></div>
               <li>
                 <button
-                  onClick={() => signOut()}
-                  className="text-error hover:bg-error/10 flex items-center gap-2 py-3"
+                  type="button"
+                  onClick={() => {
+                    console.log("Navbar: Sign Out clicked");
+                    signOut();
+                  }}
+                  className="text-error hover:bg-error/10 flex items-center w-full gap-2 py-3 px-4 rounded-lg transition-colors"
                 >
                   <LogOutIcon className="size-4" />
                   Sign Out

@@ -4,11 +4,21 @@ const PISTON_API = "https://emkc.org/api/v2/piston";
 
 const LANGUAGE_VERSIONS = {
   javascript: { language: "javascript", version: "18.15.0" },
+  typescript: { language: "typescript", version: "5.0.3" },
   python: { language: "python", version: "3.10.0" },
   java: { language: "java", version: "15.0.2" },
   c: { language: "c", version: "10.2.0" },
   cpp: { language: "c++", version: "10.2.0" },
   csharp: { language: "csharp", version: "6.12.0" },
+  php: { language: "php", version: "8.2.3" },
+  go: { language: "go", version: "1.19.0" },
+  ruby: { language: "ruby", version: "3.0.1" },
+  rust: { language: "rust", version: "1.68.2" },
+  scala: { language: "scala", version: "3.2.2" },
+  kotlin: { language: "kotlin", version: "1.8.20" },
+  swift: { language: "swift", version: "5.3.3" },
+  dart: { language: "dart", version: "2.19.6" },
+  elixir: { language: "elixir", version: "1.12.3" },
 };
 
 /**
@@ -55,6 +65,17 @@ export async function executeCode(language, code) {
 
     const output = data.run.output || "";
     const stderr = data.run.stderr || "";
+    const compileOutput = data.compile?.output || "";
+    const compileStderr = data.compile?.stderr || "";
+
+    if ((compileStderr || compileOutput) && !output && !stderr) {
+      // Compilation failed case
+      return {
+        success: false,
+        output: compileOutput,
+        error: compileStderr || compileOutput // sometimes errors are in output for some compilers
+      };
+    }
 
     // Piston returns stderr even for non-fatal errors or warnings (e.g. Java VM info)
     // We should treat it as success if we have output, but append stderr.
@@ -90,7 +111,11 @@ function getFileName(language) {
   if (language === "cpp") return "main.cpp";
   if (language === "python") return "main.py";
   if (language === "javascript") return "index.js";
-  return "main.txt";
+  if (language === "typescript") return "main.ts";
+  if (language === "go") return "main.go";
+  if (language === "rust") return "main.rs";
+
+  return "main." + (getFileExtension(language) || "txt");
 }
 
 function getFileExtension(language) {
@@ -100,7 +125,11 @@ function getFileExtension(language) {
     java: "java",
     c: "c",
     cpp: "cpp",
-    csharp: "cs"
+    cpp: "cpp",
+    csharp: "cs",
+    typescript: "ts",
+    go: "go",
+    rust: "rs"
   };
 
   return extensions[language] || "txt";

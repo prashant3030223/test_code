@@ -13,8 +13,8 @@ function CreateSessionModal({
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const { data: problems = [] } = useQuery({
-    queryKey: ["problems"],
-    queryFn: problemApi.getAllProblems,
+    queryKey: ["problemsLite"],
+    queryFn: problemApi.getAllProblemsLite,
     enabled: isOpen
   });
 

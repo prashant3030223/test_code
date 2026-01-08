@@ -176,9 +176,9 @@ function ProblemDescription({ problem, currentProblemId, onProblemChange, allPro
             </div>
 
             {/* EXAMPLES */}
-            {problem.description.examples && problem.description.examples.length > 0 && (
+            {problem.examples && problem.examples.length > 0 && (
               <div className="space-y-6 mt-8">
-                {problem.description.examples.map((example, idx) => (
+                {problem.examples.map((example, idx) => (
                   <div key={idx} className="space-y-2 group">
                     <p className="text-white font-semibold flex items-center gap-2">Example {idx + 1}:</p>
                     <div className="pl-4 border-l-2 border-[#333] group-hover:border-gray-500 transition-colors">
@@ -203,11 +203,11 @@ function ProblemDescription({ problem, currentProblemId, onProblemChange, allPro
             )}
 
             {/* CONSTRAINTS */}
-            {problem.description.constraints && problem.description.constraints.length > 0 && (
+            {problem.constraints && problem.constraints.length > 0 && (
               <div className="mt-8">
                 <h3 className="text-white font-semibold mb-3 flex items-center gap-2">Constraints:</h3>
                 <ul className="space-y-2 list-disc list-inside text-gray-300 ml-2">
-                  {problem.description.constraints.map((constraint, idx) => (
+                  {problem.constraints.map((constraint, idx) => (
                     <li key={idx} className="text-sm font-mono bg-[#262626]/50 w-fit px-2 py-0.5 rounded">{constraint}</li>
                   ))}
                 </ul>

@@ -1,18 +1,41 @@
 import { supabase } from "../lib/supabase";
 
 export const problemApi = {
+    getAllProblemsLite: async () => {
+        console.log("API: getAllProblemsLite started");
+        let allData = [];
+        let from = 0;
+        const batchSize = 1000;
+        let moreData = true;
+
+        while (moreData) {
+            const { data, error } = await supabase
+                .from("problems")
+                .select("id, title, difficulty, companies, category")
+                .order("id", { ascending: true })
+                .range(from, from + batchSize - 1);
+
+            if (error) throw error;
+            if (data.length > 0) {
+                allData = [...allData, ...data];
+                from += batchSize;
+                if (data.length < batchSize) moreData = false;
+            } else {
+                moreData = false;
+            }
+        }
+
+        return allData;
+    },
+
     getAllProblems: async () => {
         const { data: { user } } = await supabase.auth.getUser();
-
-        // 1. Fetch Problems
         const { data: problems, error } = await supabase
             .from("problems")
             .select("*")
             .order("created_at", { ascending: false });
 
         if (error) throw error;
-
-        // 2. Fetch Solved Status if logged in
         if (user) {
             const { data: submissions } = await supabase
                 .from("submissions")
@@ -21,12 +44,8 @@ export const problemApi = {
                 .eq("status", "Accepted");
 
             const solvedSet = new Set(submissions?.map(s => s.problem_id));
-            return problems.map(p => ({
-                ...p,
-                isSolved: solvedSet.has(p.id)
-            }));
+            return problems.map(p => ({ ...p, isSolved: solvedSet.has(p.id) }));
         }
-
         return problems;
     },
 
@@ -218,49 +237,29 @@ export const problemApi = {
     },
 
     getProblemsPaginated: async ({ page = 1, pageSize = 20, search = "", difficulty = "All", company = "All" } = {}) => {
-        const { data: { user } } = await supabase.auth.getUser();
+        console.log("API: getProblemsPaginated started");
 
-        let query = supabase.from("problems").select("*", { count: "exact" });
+        let query = supabase.from("problems").select("id, title, difficulty, companies, category", { count: "exact" });
 
-        // Apply Filters
         if (search) query = query.ilike("title", `%${search}%`);
         if (difficulty !== "All") query = query.eq("difficulty", difficulty);
         if (company !== "All") query = query.contains("companies", [company]);
 
-        // Pagination
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
 
-        // Sorting (Stable sort)
-        query = query.order("created_at", { ascending: true }).range(from, to);
+        query = query.order("id", { ascending: true }).range(from, to);
 
         const { data: problems, count, error } = await query;
-        if (error) throw error;
-
-        // Fetch Solved Status if logged in
-        if (user && problems.length > 0) {
-            const { data: submissions } = await supabase
-                .from("submissions")
-                .select("problem_id")
-                .eq("user_id", user.id)
-                .eq("status", "Accepted")
-                .in("problem_id", problems.map(p => p.id));
-
-            const solvedSet = new Set(submissions?.map(s => s.problem_id));
-            problems.forEach(p => p.isSolved = solvedSet.has(p.id));
+        if (error) {
+            console.error("Supabase Error:", error);
+            throw error;
         }
 
         return { problems, count: count || 0 };
     },
 
     getGlobalStats: async () => {
-        // Lightweight fetch for stats and filters
-        const { data, error } = await supabase
-            .from("problems")
-            .select("difficulty, companies");
-
-        if (error) throw error;
-
-        return data;
+        return problemApi.getAllProblemsLite();
     }
 };

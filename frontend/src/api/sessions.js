@@ -8,13 +8,36 @@ export const sessionApi = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated");
 
-    // Generate call_id (Logic moved from backend)
+    // 2. Fetch the actual profile from the 'users' table
+    // We try to find by clerk_id first
+    let { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("clerk_id", user.id)
+      .maybeSingle();
+
+    // Fallback: If not found by clerk_id, try finding where ID matches the Auth ID
+    if (!profile) {
+      const { data: profileById } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+      profile = profileById;
+    }
+
+    if (!profile) {
+      console.error("User profile not found for Auth ID:", user.id);
+      throw new Error("Your user profile was not found. Please try refreshing the page or logging out and back in.");
+    }
+
+    // Generate call_id
     const callId = `room_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     const sessionData = {
-      problem,
-      difficulty,
-      host_id: user.id,
+      problem: problem || (problems && problems[0]?.title) || "Untitled Session",
+      difficulty: difficulty || (problems && problems[0]?.difficulty) || "Medium",
+      host_id: profile.id,
       call_id: callId,
       is_private: !!is_private,
       password: password || null,
@@ -23,35 +46,57 @@ export const sessionApi = {
       status: 'active'
     };
 
+    console.log("Attempting to create session with data:", sessionData);
+
     const { data: session, error } = await supabase
       .from("sessions")
       .insert(sessionData)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Critical: Supabase Session Creation Error!", error);
+      throw new Error(`Database Error: ${error.message} (Code: ${error.code})`);
+    }
     return { session };
   },
 
   getActiveSessions: async () => {
-    const { data: sessions, error } = await supabase
-      .from("sessions")
-      .select(`
-        *,
-        host:users!host_id(id, name, profile_image, email, clerk_id),
-        participant:users!participant_id(id, name, profile_image, email, clerk_id)
-      `)
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(20);
+    const fetchPromise = (async () => {
+      const { data: sessions, error } = await supabase
+        .from("sessions")
+        .select(`
+          *,
+          host:users!host_id(id, name, profile_image, email, clerk_id),
+          participant:users!participant_id(id, name, profile_image, email, clerk_id)
+        `)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(20);
 
-    if (error) throw error;
-    return { sessions };
+      if (error) throw error;
+      return { sessions };
+    })();
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Active Sessions Fetch Timeout")), 10000)
+    );
+
+    return Promise.race([fetchPromise, timeoutPromise]);
   },
 
   getMyRecentSessions: async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { sessions: [] };
+
+    // Resolve internal profile ID
+    const { data: profile } = await supabase
+      .from("users")
+      .select("id")
+      .eq("clerk_id", user.id)
+      .maybeSingle();
+
+    const profileId = profile?.id || user.id;
 
     const { data: sessions, error } = await supabase
       .from("sessions")
@@ -61,11 +106,14 @@ export const sessionApi = {
         participant:users!participant_id(id, name, profile_image, email, clerk_id)
       `)
       .eq("status", "completed")
-      .or(`host_id.eq.${user.id},participant_id.eq.${user.id}`)
+      .or(`host_id.eq.${profileId},participant_id.eq.${profileId}`)
       .order("created_at", { ascending: false })
       .limit(20);
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error fetching recent sessions:", error);
+      throw error;
+    }
     return { sessions };
   },
 
@@ -125,41 +173,53 @@ export const sessionApi = {
 
   endSession: async (id) => {
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
 
-    // Check if host (Optional security check on client, RLS should enforce strictly)
-    const { data: session } = await supabase.from("sessions").select("host_id").eq("id", id).single();
-    if (session && session.host_id !== user.id) {
-      throw new Error("Only host can end session");
-    }
-
+    // Attempt to end the session. RLS should handle permission.
+    // We check the result to ensure it actually happened.
     const { data, error } = await supabase
       .from("sessions")
-      .update({ status: "completed" })
+      .update({
+        status: "completed",
+        updated_at: new Date().toISOString()
+      })
       .eq("id", id)
-      .select()
-      .single();
+      .select();
 
-    if (error) throw error;
-    return { session: data, message: "Session ended successfully" };
+    if (error) {
+      console.error("Supabase Error ending session:", error);
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      // If no rows were updated, check if it's because of permissions
+      const { data: checkSession } = await supabase.from("sessions").select("host_id").eq("id", id).single();
+      if (!checkSession) throw new Error("Session not found");
+      throw new Error("Only the host can end this session");
+    }
+
+    return { session: data[0], message: "Session ended successfully" };
   },
 
   finalizeSession: async (id, payload) => {
-    // Replaces the backend finalize call. 
-    // Email sending via Nodemailer IS REMOVED as it cannot run in browser.
-    // We simply save the results to DB.
-
     const { problemScores, interviewMarks } = payload;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("sessions")
       .update({
         status: "completed",
         problem_scores: problemScores,
-        interview_marks: interviewMarks
+        interview_marks: String(interviewMarks),
+        updated_at: new Date().toISOString()
       })
-      .eq("id", id);
+      .eq("id", id)
+      .select();
 
     if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error("Failed to finalize session: Permission denied or session not found");
+    }
+
     return { message: "Session finalized. Results saved to DB." };
   }
 };

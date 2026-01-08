@@ -7,6 +7,11 @@
   VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdza3lncWNndW5sYm5ham5ycG56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2ODI0OTgsImV4cCI6MjA4MzI1ODQ5OH0.QGYK571Gg6Lo8tu4XBzRzHukCPZZTwnhhd05NPVxfFU"
   VITE_STREAM_API_KEY = "your_stream_api_key"
 
+[build.environment]
+  VITE_SUPABASE_URL = "https://gskygqcgunlbnajnrpnz.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdza3lncWNndW5sYm5ham5ycG56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2ODI0OTgsImV4cCI6MjA4MzI1ODQ5OH0.QGYK571Gg6Lo8tu4XBzRzHukCPZZTwnhhd05NPVxfFU"
+  VITE_STREAM_API_KEY = "your_stream_api_key"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

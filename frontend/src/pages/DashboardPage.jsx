@@ -34,7 +34,7 @@ function DashboardPage() {
     createSessionMutation.mutate(
       {
         ...roomConfig,
-        difficulty: roomConfig.difficulty?.toLowerCase()
+        difficulty: roomConfig.difficulty // Keep original casing (Easy, Medium, Hard)
       },
       {
         onSuccess: (data) => {

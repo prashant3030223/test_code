@@ -2,7 +2,8 @@ import Editor from "@monaco-editor/react";
 import {
   Loader2 as Loader2Icon,
   Play as PlayIcon,
-  Check as CheckIcon
+  Check as CheckIcon,
+  RotateCcw as RotateCcwIcon
 } from "lucide-react";
 import { LANGUAGE_CONFIG } from "../data/problems";
 
@@ -12,6 +13,7 @@ function CodeEditorPanel({
   onCodeChange,
   onLanguageChange,
   onRunCode,
+  onReset,
   isRunning,
   onSubmit,
   readOnly = false,
@@ -32,13 +34,23 @@ function CodeEditorPanel({
             <option value="java">Java</option>
             <option value="cpp">C++</option>
             <option value="c">C</option>
-            <option value="csharp">C#</option>
+
           </select>
           {readOnly && (
             <div className="flex items-center gap-2 ml-2 px-3 py-1.5 bg-primary/10 rounded-lg border border-primary/20">
               <div className="size-1.5 rounded-full bg-primary animate-pulse" />
               <span className="text-[9px] font-black uppercase tracking-widest text-primary">Observer Mode</span>
             </div>
+
+          )}
+          {onReset && !readOnly && (
+            <button
+              onClick={onReset}
+              className="ml-2 text-gray-500 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5"
+              title="Reset Code"
+            >
+              <RotateCcwIcon className="size-3.5" />
+            </button>
           )}
         </div>
 
